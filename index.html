@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NSE Stock Analyzer v3</title>
+<style>
+:root{
+  --bg:#f4f6fa; --card:#fff; --ink:#0f1b2d; --muted:#5b6b82; --line:#e3e8f0;
+  --navy:#0b2447; --accent:#ff6b4a; --good:#12a150; --good-bg:#e6f6ec; --avg:#c98a00; --avg-bg:#fff5da;
+  --bad:#d8342c; --bad-bg:#fdeaea; --na:#8a97a8; --na-bg:#eef1f5; --blue-bg:#eaf1ff;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Segoe UI",Inter,system-ui,-apple-system,Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink);font-size:15px}
+header{background:linear-gradient(120deg,#0b2447 0%,#19376d 60%,#233f7a 100%);color:#fff;padding:26px 0 70px}
+.wrap{max-width:1200px;margin:0 auto;padding:0 22px}
+header h1{margin:0;font-size:26px;font-weight:700}
+header h1 span{color:var(--accent)}
+header p{margin:6px 0 0;color:#c9d4ea;font-size:14px}
+.search-card{background:var(--card);border-radius:16px;box-shadow:0 10px 30px rgba(11,36,71,.12);padding:22px;margin-top:-48px;position:relative}
+.search-row{display:flex;gap:12px}
+.inp-wrap{flex:1;position:relative}
+#q{width:100%;padding:15px 18px;font-size:17px;border:1.5px solid var(--line);border-radius:12px;outline:none}
+#q:focus{border-color:#19376d;box-shadow:0 0 0 4px rgba(25,55,109,.08)}
+button.primary{background:var(--accent);color:#fff;border:0;border-radius:12px;padding:0 28px;font-size:16px;font-weight:600;cursor:pointer}
+button.primary:disabled{opacity:.6;cursor:wait}
+#sugg{position:absolute;left:0;right:0;top:100%;margin-top:6px;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 28px rgba(0,0,0,.1);z-index:20;display:none;overflow:hidden}
+#sugg div{padding:10px 16px;cursor:pointer;display:flex;justify-content:space-between;gap:12px}
+#sugg div:hover,#sugg div.act{background:#f1f5fb}
+#sugg b{color:var(--navy);min-width:110px}
+#sugg small{color:var(--muted);text-align:right}
+.toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:12px;flex-wrap:wrap}
+.hint{color:var(--muted);font-size:13px}
+.hint code{background:#eef2f8;padding:1px 6px;border-radius:5px}
+.seg{display:inline-flex;background:#eef2f8;border-radius:10px;padding:3px}
+.seg button{border:0;background:transparent;padding:7px 14px;border-radius:8px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer}
+.seg button.on{background:#fff;color:var(--navy);box-shadow:0 1px 4px rgba(0,0,0,.1)}
+.seg-l{font-size:12px;color:var(--muted);margin-right:8px;font-weight:600}
+#status{margin-top:14px}
+.banner{padding:12px 16px;border-radius:10px;font-size:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.banner.info{background:var(--blue-bg);color:#19376d}
+.banner.ok{background:var(--good-bg);color:#0b6b36}
+.banner.warn{background:var(--avg-bg);color:#7a5400}
+.banner.err{background:var(--bad-bg);color:#8e1f19}
+.options{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px;margin-top:12px}
+.opt{border:1.5px solid var(--line);border-radius:12px;padding:12px 14px;cursor:pointer;background:#fff;transition:.15s}
+.opt:hover{border-color:var(--accent);transform:translateY(-1px)}
+.opt b{display:block;color:var(--navy)}
+.opt span{color:var(--muted);font-size:13px}
+.opt i{float:right;font-style:normal;font-size:11px;color:var(--muted)}
+.spinner{width:18px;height:18px;border:3px solid #c9d4ea;border-top-color:#19376d;border-radius:50%;animation:sp 1s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+#result{display:none;margin:22px 0 40px}
+.card{background:var(--card);border-radius:16px;box-shadow:0 2px 10px rgba(11,36,71,.06);padding:20px 22px}
+.card h2{margin:0 0 14px;font-size:17px;color:var(--navy);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.stack{display:grid;gap:18px}
+.co-name{font-size:22px;font-weight:700;margin:0}
+.co-sub{color:var(--muted);margin-top:4px;font-size:14px}
+.tag{display:inline-block;background:#eef2f8;color:#19376d;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;margin-right:6px}
+.hdr-row{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;flex-wrap:wrap}
+.price{font-size:30px;font-weight:700}
+.chg{font-size:15px;font-weight:600;margin-left:8px}
+.up{color:var(--good)} .down{color:var(--bad)}
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:14px}
+.kpi{background:#f7f9fc;border-radius:10px;padding:10px 12px}
+.kpi small{color:var(--muted);font-size:12px;display:block}
+.kpi b{font-size:15px}
+.scores{display:grid;grid-template-columns:1fr 1fr 1fr 1.25fr;gap:14px}
+.sc{background:var(--card);border-radius:16px;box-shadow:0 2px 10px rgba(11,36,71,.06);padding:18px;border-top:5px solid var(--na);position:relative}
+.sc .t{font-size:12px;font-weight:700;letter-spacing:.6px;color:var(--muted);text-transform:uppercase}
+.sc .w{position:absolute;right:16px;top:16px;font-size:11px;color:var(--muted);background:#f1f4f9;padding:2px 8px;border-radius:10px}
+.sc .n{font-size:40px;font-weight:800;margin:8px 0 2px;line-height:1}
+.sc .n small{font-size:15px;color:var(--muted);font-weight:600}
+.sc .lab{display:inline-block;font-size:13px;font-weight:700;padding:3px 10px;border-radius:14px;margin:6px 0 10px}
+.sc .ring{height:8px;background:#eef1f5;border-radius:6px;overflow:hidden}
+.sc .ring div{height:100%;border-radius:6px}
+.sc .cnt{display:flex;gap:10px;font-size:12px;font-weight:600;margin-top:10px}
+.sc.overall{background:linear-gradient(160deg,#0b2447,#19376d);color:#fff;border-top-color:var(--accent)}
+.sc.overall .t,.sc.overall .w{color:#c9d4ea}
+.sc.overall .w{background:rgba(255,255,255,.12)}
+.bigv{font-size:38px;font-weight:800;letter-spacing:2px;padding:6px 18px;border-radius:12px;display:inline-block;margin:8px 0 6px}
+.bigv.BUY{background:#12a150;color:#fff}.bigv.HOLD{background:#e0a100;color:#fff}.bigv.AVOID{background:#d8342c;color:#fff}
+.vsub{font-size:13px;color:#e4ebf7}
+.formula{font-size:12px;color:#c9d4ea;margin-top:10px;line-height:1.5;border-top:1px solid rgba(255,255,255,.15);padding-top:8px}
+.formula b{color:#fff}
+.lvl-Good{border-top-color:var(--good)} .lvl-Average{border-top-color:var(--avg)} .lvl-Bad{border-top-color:var(--bad)}
+.lab.Good{background:var(--good-bg);color:var(--good)} .lab.Average{background:var(--avg-bg);color:var(--avg)} .lab.Bad{background:var(--bad-bg);color:var(--bad)}
+.dip{border-left:6px solid var(--na)}
+.dip.quality{border-left-color:var(--good)} .dip.watch{border-left-color:var(--avg)} .dip.trap{border-left-color:var(--bad)} .dip.none{border-left-color:#c4ccd8}
+.checks{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:12px}
+.chk{background:#f7f9fc;border-radius:10px;padding:10px 12px;font-size:13px}
+.chk b{display:block;font-size:13px;margin-bottom:2px}
+.chk .ok{color:var(--good);font-weight:700} .chk .no{color:var(--bad);font-weight:700} .chk .mid{color:var(--avg);font-weight:700}
+.plan{margin-top:12px;background:var(--blue-bg);border-radius:10px;padding:12px 14px;font-size:14px;color:#19376d}
+.plan ol{margin:6px 0 0;padding-left:20px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.4px;padding:8px 10px;border-bottom:2px solid var(--line)}
+td{padding:10px;border-bottom:1px solid var(--line);vertical-align:top}
+td.val{font-weight:700;white-space:nowrap}
+td.bm,td.note{color:var(--muted);font-size:13px}
+td.src{font-size:11px;color:var(--muted);white-space:nowrap}
+tr:hover td{background:#fafbfd}
+.chip{display:inline-block;min-width:76px;text-align:center;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:700}
+.c-Good{background:var(--good-bg);color:var(--good)} .c-Average{background:var(--avg-bg);color:var(--avg)}
+.c-Bad{background:var(--bad-bg);color:var(--bad)} .c-NA{background:var(--na-bg);color:var(--na)}
+.tally{font-size:12px;font-weight:600}
+.tally span{margin-left:8px}
+.srcbar{display:flex;flex-wrap:wrap;gap:6px;margin:-4px 0 12px}
+.srcbar span{font-size:11px;padding:3px 9px;border-radius:12px;background:var(--na-bg);color:var(--muted)}
+.srcbar span.ok{background:var(--good-bg);color:#0b6b36}
+.srcbar span.fail{background:var(--bad-bg);color:#8e1f19}
+.rec ul{margin:6px 0 0;padding-left:18px}
+.rec li{margin:4px 0}
+.rec h3{font-size:14px;margin:14px 0 4px}
+.cols2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+#chart{width:100%;height:240px}
+.legend{display:flex;gap:16px;font-size:12px;color:var(--muted);font-weight:400}
+.legend i{display:inline-block;width:14px;height:3px;margin-right:5px;vertical-align:middle}
+.demo{background:#ffe9e3;color:#a4331a;padding:8px 14px;border-radius:10px;font-size:13px;margin-bottom:14px;font-weight:600}
+footer{color:var(--muted);font-size:12px;text-align:center;padding:10px 0 30px;line-height:1.6}
+@media(max-width:980px){.scores{grid-template-columns:1fr 1fr}.cols2{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <h1>NSE Stock <span>Analyzer</span></h1>
+  <p>Validates the stock name on NSE, scores Technical, Fundamental and Sector indicators separately, checks whether a recent fall is a buying opportunity, and gives one transparent verdict.</p>
+</div></header>
+
+<div class="wrap">
+  <div class="search-card">
+    <div class="search-row">
+      <div class="inp-wrap">
+        <input id="q" autocomplete="off" placeholder="Type a stock name or symbol, e.g. Reliance, HDFC Bank, infosys, L&T">
+        <div id="sugg"></div>
+      </div>
+      <button class="primary" id="go">Analyze</button>
+    </div>
+    <div class="toolbar">
+      <div class="hint">Typos are fine: try <code>relaince</code>, <code>hdfc</code>, <code>tata</code>. <span id="engine"></span></div>
+      <div><span class="seg-l">MY HORIZON</span><span class="seg" id="horizon">
+        <button data-h="investor" class="on">Long-term investor</button><button data-h="balanced">Balanced</button><button data-h="trader">Short-term trader</button>
+      </span></div>
+    </div>
+    <div id="status"></div>
+  </div>
+
+  <div id="result">
+    <div id="demoFlag"></div>
+    <div class="stack">
+      <div class="card" id="hdr"></div>
+      <div class="scores" id="scores"></div>
+      <div class="card dip" id="dip"></div>
+      <div class="card rec" id="rec"></div>
+      <div class="card">
+        <h2>Price trend (1 year) <span class="legend"><span><i style="background:#19376d"></i>Close</span><span><i style="background:#ff6b4a"></i>50 DMA</span><span><i style="background:#12a150"></i>200 DMA</span></span></h2>
+        <svg id="chart" viewBox="0 0 1100 240" preserveAspectRatio="none"></svg>
+      </div>
+      <div class="card" id="t-tech"></div>
+      <div class="card" id="t-fund"></div>
+      <div class="card" id="t-sect"></div>
+    </div>
+  </div>
+  <footer>Data: NSE equity master list · prices, technicals and sector indices from Yahoo Finance (yfinance) · fundamentals from Yahoo Finance, then Screener.in, Tickertape, Moneycontrol, NSE India, Trendlyne, StockEdge and Google Finance, in that order.<br>
+  Benchmarks, weights and thresholds are editable in the <code>CONFIG</code> section of this file. For education and screening only. This is not investment advice.</footer>
+</div>
+
+<script>
+/* =====================================================================
+   CONFIG - weights, verdict thresholds, dip rules and benchmarks (unchanged from v2)
+   ===================================================================== */
+const API = location.protocol.startsWith("http") ? "" : "http://localhost:8765";
+
+const PROFILES = {
+  investor: { label:"Long-term investor", technical:0.15, fundamental:0.60, sector:0.25, dipOverride:true },
+  balanced: { label:"Balanced",           technical:0.35, fundamental:0.45, sector:0.20, dipOverride:true },
+  trader:   { label:"Short-term trader",  technical:0.60, fundamental:0.15, sector:0.25, dipOverride:false },
+};
+const VERDICT = { buy: 60, avoid: 45, minFundamentalForBuy: 50 };
+const DIP = { fall6m: -15, from52wHigh: -20, qualityFund: 60, watchFund: 45, maxPeVsSector: 1.3, stockSpecificGap: -10 };
+
+const SECTOR_BENCH = {
+  "Technology":{pe:28,roe:24}, "Financial Services":{pe:18,roe:14}, "Consumer Defensive":{pe:45,roe:25},
+  "Healthcare":{pe:32,roe:15}, "Consumer Cyclical":{pe:30,roe:16}, "Basic Materials":{pe:16,roe:13},
+  "Energy":{pe:13,roe:13}, "Utilities":{pe:18,roe:13}, "Real Estate":{pe:40,roe:11}, "Industrials":{pe:38,roe:15},
+  "Communication Services":{pe:35,roe:12}, "_default":{pe:25,roe:15},
+};
+
+const G="Good", A="Average", B="Bad", NA="NA";
+const band = (v, goodFn, avgFn) => v==null ? NA : goodFn(v) ? G : avgFn(v) ? A : B;
+
+const TECH = [
+  { k:"px_vs_sma50", l:"Price vs 50-DMA", u:"%", w:1, bm:">+2% Good · ±2% Avg",
+    r:v=>band(v,x=>x>2,x=>x>=-2), n:v=>v>0?"Above short-term trend":"Below short-term trend" },
+  { k:"px_vs_sma200", l:"Price vs 200-DMA", u:"%", w:1.5, bm:"0 to +25% Good · -5 to 0 Avg",
+    r:v=>band(v,x=>x>0&&x<=25,x=>x>=-5||x>25), n:v=>v>25?"Far above long-term trend, may be stretched":v>0?"Long-term uptrend intact":"Below long-term trend" },
+  { k:"sma50_vs_sma200", l:"50-DMA vs 200-DMA (Golden cross)", u:"%", w:1, bm:">+1% Good · ±1% Avg",
+    r:v=>band(v,x=>x>1,x=>x>=-1), n:v=>v>0?"Golden cross (bullish)":"Death cross (bearish)" },
+  { k:"rsi14", l:"RSI (14)", u:"", w:1, bm:"45–65 Good · 35–45 / 65–75 Avg",
+    r:v=>band(v,x=>x>=45&&x<=65,x=>x>=35&&x<=75), n:v=>v>70?"Overbought":v<30?"Oversold (possible bounce zone)":v>=50?"Bullish momentum":v>=45?"Neutral momentum":"Weak momentum" },
+  { k:"macd_hist", l:"MACD histogram (12,26,9)", u:"", w:1, bm:">0 & MACD>0 Good",
+    r:(v,d)=>v==null?NA:(v>0&&d.technical.macd>0)?G:(v>0||d.technical.macd>0)?A:B,
+    n:v=>v>0?"MACD above signal (bullish)":"MACD below signal (bearish)" },
+  { k:"adx14", l:"ADX (14) trend strength", u:"", w:1, bm:">25 with +DI>-DI Good",
+    r:(v,d)=>{ if(v==null) return NA; const up=d.technical.plus_di>d.technical.minus_di; return v>=25?(up?G:B):v>=20?(up?A:B):A; },
+    n:(v,d)=>(v>=25?"Strong ":"Weak ")+(d.technical.plus_di>d.technical.minus_di?"uptrend":"downtrend") },
+  { k:"bb_pctb", l:"Bollinger %B (20,2)", u:"", w:0.5, bm:"0.5–0.9 Good · 0.2–0.5 Avg",
+    r:v=>band(v,x=>x>=0.5&&x<=0.9,x=>x>=0.2&&x<=1.05), n:v=>v>1?"Above upper band":v<0?"Below lower band":"Inside bands" },
+  { k:"stoch_k", l:"Stochastic %K (14)", u:"", w:0.5, bm:"50–80 Good · 20–50 Avg",
+    r:v=>band(v,x=>x>=50&&x<=80,x=>x>=20&&x<=90), n:v=>v>80?"Overbought zone":v<20?"Oversold zone":"Neutral zone" },
+  { k:"from_52w_high", l:"Distance from 52-week high", u:"%", w:1, bm:"within 10% Good · 10–25% Avg",
+    r:v=>band(v,x=>x>=-10,x=>x>=-25), n:v=>v>=-10?"Near highs (strength)":"Well below highs" },
+  { k:"ret_6m", l:"6-month return", u:"%", w:1, bm:">10% Good · 0–10% Avg",
+    r:v=>band(v,x=>x>10,x=>x>=0), n:v=>v>0?"Positive medium-term momentum":"Negative momentum" },
+  { k:"vol_ratio", l:"Volume (20d / 50d avg)", u:"x", w:0.5, bm:">1.1x on up-move Good",
+    r:(v,d)=>{ if(v==null) return NA; const up=(d.technical.ret_1m||0)>0; return v>=1.1?(up?G:B):A; },
+    n:(v,d)=>v>=1.1?((d.technical.ret_1m||0)>0?"Buying interest rising":"Selling on volume"):"Normal volume" },
+  { k:"volatility", l:"Volatility (annualised)", u:"%", w:0.5, bm:"<25% Good · 25–40% Avg",
+    r:v=>band(v,x=>x<25,x=>x<=40), n:v=>v<25?"Stable":v<=40?"Moderate swings":"High risk" },
+  { k:"beta", l:"Beta vs NIFTY 50", u:"", w:0.5, bm:"<1.0 Good · 1.0–1.3 Avg",
+    r:v=>band(v,x=>x<1,x=>x<=1.3), n:v=>v<1?"Less volatile than market":"More volatile than market" },
+];
+
+const FUND = [
+  { k:"pe", l:"P/E (TTM) vs sector", u:"x", w:1.5, bm:d=>`Sector P/E ${sb(d).pe}x (${sb(d).peSrc}) · <0.9x of sector Good`,
+    r:(v,d)=>v==null?NA:v<=0?B:band(v/sb(d).pe,x=>x<0.9,x=>x<=1.2),
+    n:(v,d)=>v<=0?"Loss-making":`${(v/sb(d).pe).toFixed(2)}x of sector P/E` },
+  { k:"peg", l:"PEG ratio", u:"", w:1, bm:"<1 Good · 1–2 Avg",
+    r:v=>v==null||v<=0?NA:band(v,x=>x<1,x=>x<=2), n:v=>v<1?"Growth at a reasonable price":v<=2?"Fairly priced for growth":"Expensive vs growth" },
+  { k:"pb", l:"Price / Book", u:"x", w:0.75, bm:d=>d.meta.is_financial?"<2 Good · 2–3.5 Avg":"<3 Good · 3–6 Avg",
+    r:(v,d)=>d.meta.is_financial?band(v,x=>x<2,x=>x<=3.5):band(v,x=>x<3,x=>x<=6), n:()=>"" },
+  { k:"ev_ebitda", l:"EV / EBITDA", u:"x", w:0.75, bm:"<12 Good · 12–20 Avg", fin:false,
+    r:v=>band(v,x=>x>0&&x<12,x=>x>0&&x<=20), n:()=>"" },
+  { k:"roe", l:"Return on Equity", u:"%", w:1.5, bm:">=18% Good · 12–18% Avg",
+    r:v=>band(v,x=>x>=18,x=>x>=12), n:v=>v>=18?"High-quality returns":v>=12?"Acceptable returns":"Weak returns" },
+  { k:"roce", l:"Return on Capital Employed", u:"%", w:1, bm:">=18% Good · 12–18% Avg", fin:false,
+    r:v=>band(v,x=>x>=18,x=>x>=12), n:()=>"" },
+  { k:"roa", l:"Return on Assets", u:"%", w:0.75, bm:d=>d.meta.is_financial?">=1.5% Good · 0.8–1.5% Avg":">=8% Good · 4–8% Avg",
+    r:(v,d)=>d.meta.is_financial?band(v,x=>x>=1.5,x=>x>=0.8):band(v,x=>x>=8,x=>x>=4), n:()=>"" },
+  { k:"debt_equity", l:"Debt / Equity", u:"x", w:1.25, bm:"<0.5 Good · 0.5–1.5 Avg", fin:false,
+    r:v=>band(v,x=>x<0.5,x=>x<=1.5), n:v=>v<0.5?"Low leverage":v<=1.5?"Moderate leverage":"High leverage" },
+  { k:"current_ratio", l:"Current ratio", u:"x", w:0.5, bm:">=1.5 Good · 1–1.5 Avg", fin:false,
+    r:v=>band(v,x=>x>=1.5,x=>x>=1), n:v=>v>=1?"Can cover short-term dues":"Liquidity pressure" },
+  { k:"net_margin", l:"Net profit margin", u:"%", w:1, bm:">=15% Good · 7–15% Avg",
+    r:v=>band(v,x=>x>=15,x=>x>=7), n:v=>v<0?"Loss-making":"" },
+  { k:"op_margin", l:"Operating margin", u:"%", w:0.75, bm:">=20% Good · 10–20% Avg",
+    r:v=>band(v,x=>x>=20,x=>x>=10), n:()=>"" },
+  { k:"rev_growth", l:"Revenue growth (YoY)", u:"%", w:1.25, bm:">=12% Good · 5–12% Avg",
+    r:v=>band(v,x=>x>=12,x=>x>=5), n:v=>v<0?"Revenue shrinking":"" },
+  { k:"eps_growth", l:"Earnings growth (YoY)", u:"%", w:1.25, bm:">=15% Good · 5–15% Avg",
+    r:v=>band(v,x=>x>=15,x=>x>=5), n:v=>v<0?"Earnings declining":"" },
+  { k:"div_yield", l:"Dividend yield", u:"%", w:0.25, bm:">=1.5% Good · else Avg",
+    r:v=>v==null?NA:v>=1.5?G:A, n:()=>"" },
+  { k:"insider_holding", l:"Promoter / insider holding", u:"%", w:0.5, bm:">=50% Good · 30–50% Avg",
+    r:v=>band(v,x=>x>=50,x=>x>=30), n:()=>"" },
+];
+
+const SECT = [
+  { k:"sec_ret_3m", l:"Sector index 3-month return", u:"%", w:1, bm:">+3% Good · ±3% Avg", r:v=>band(v,x=>x>3,x=>x>=-3), n:()=>"" },
+  { k:"sec_ret_1y", l:"Sector index 1-year return", u:"%", w:1, bm:">+10% Good · 0–10% Avg", r:v=>band(v,x=>x>10,x=>x>=0), n:()=>"" },
+  { k:"sec_vs_200dma", l:"Sector index vs its 200-DMA", u:"%", w:1, bm:">+2% Good · ±2% Avg",
+    r:v=>band(v,x=>x>2,x=>x>=-2), n:v=>v>0?"Sector in uptrend":"Sector in downtrend" },
+  { k:"sec_vs_nifty_6m", l:"Sector vs NIFTY 50 (6M, relative)", u:"pp", w:1, bm:">+2pp Good · ±2pp Avg",
+    r:v=>band(v,x=>x>2,x=>x>=-2), n:v=>v>0?"Sector outperforming market":"Sector lagging market" },
+  { k:"stock_vs_sec_6m", l:"Stock vs its sector (6M, relative)", u:"pp", w:1.25, bm:">+3pp Good · ±3pp Avg",
+    r:v=>band(v,x=>x>3,x=>x>=-3), n:v=>v>0?"Sector leader":"Sector laggard" },
+  { k:"stock_vs_nifty_1y", l:"Stock vs NIFTY 50 (1Y, relative)", u:"pp", w:1, bm:">+5pp Good · ±5pp Avg", r:v=>band(v,x=>x>5,x=>x>=-5), n:()=>"" },
+  { k:"_roe_vs_sector", l:"Stock ROE vs sector benchmark", u:"x", w:1, bm:d=>`Sector ROE ~${sb(d).roe}% · >1.1x Good`,
+    get:d=>d.fundamental.roe==null?null:+(d.fundamental.roe/sb(d).roe).toFixed(2), r:v=>band(v,x=>x>1.1,x=>x>=0.9), n:()=>"" },
+  { k:"_pe_vs_sector", l:"Stock P/E vs sector P/E", u:"x", w:1, bm:d=>`Sector P/E ${sb(d).pe}x · <0.9x Good`,
+    get:d=>d.fundamental.pe==null||d.fundamental.pe<=0?null:+(d.fundamental.pe/sb(d).pe).toFixed(2),
+    r:v=>band(v,x=>x<0.9,x=>x<=1.2), n:v=>v<0.9?"Cheaper than sector":v<=1.2?"In line with sector":"Premium to sector" },
+];
+
+/* ===================================================================== */
+const $ = s => document.querySelector(s);
+const sb = d => { const b = SECTOR_BENCH[d.meta.sector] || SECTOR_BENCH._default;
+  return d.sector_pe_live ? {...b, pe:+d.sector_pe_live.toFixed(1), peSrc:`live, ${d.sector_pe_src||"web"}`} : {...b, peSrc:"indicative"}; };
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const fmt = (v,u) => v==null ? "—" : (u==="%"||u==="pp") ? `${v>0&&u==="pp"?"+":""}${(+v).toFixed(2)}${u==="pp"?" pp":"%"}` : u==="x" ? `${(+v).toFixed(2)}x` : (+v).toFixed(2);
+const inr = v => v==null ? "—" : "₹" + (+v).toLocaleString("en-IN",{maximumFractionDigits:2});
+const crore = v => v==null ? "—" : "₹" + Math.round(v/1e7).toLocaleString("en-IN") + " Cr";
+let horizon = "investor", lastData = null;
+
+async function api(path){
+  const r = await fetch(API + path); const j = await r.json();
+  if (j.error) throw new Error(j.error); return j;
+}
+
+document.querySelectorAll("#horizon button").forEach(b => b.onclick = () => {
+  document.querySelectorAll("#horizon button").forEach(x=>x.classList.toggle("on", x===b));
+  horizon = b.dataset.h; if (lastData) render(lastData, false);
+});
+
+let tmr, sIdx=-1, sItems=[], suggOn=true;
+function hideSugg(){ clearTimeout(tmr); suggOn=false; $("#sugg").style.display="none"; }
+$("#q").addEventListener("input", e => {
+  clearTimeout(tmr); suggOn = true;
+  const v = e.target.value.trim();
+  if (v.length < 2) { $("#sugg").style.display="none"; return; }
+  tmr = setTimeout(async () => {
+    try {
+      const {items} = await api("/api/suggest?q=" + encodeURIComponent(v));
+      if (!suggOn || $("#q").value.trim() !== v) return;
+      sItems = items; sIdx = -1;
+      $("#sugg").innerHTML = items.map((it,i)=>`<div data-i="${i}"><b>${esc(it.symbol)}</b><small>${esc(it.name)}</small></div>`).join("");
+      $("#sugg").style.display = items.length ? "block" : "none";
+    } catch(_) {}
+  }, 220);
+});
+$("#sugg").addEventListener("mousedown", e => {
+  const d = e.target.closest("div[data-i]"); if(!d) return;
+  const it = sItems[+d.dataset.i]; $("#q").value = it.name; run(it.symbol, it.name, "picked");
+});
+$("#q").addEventListener("keydown", e => {
+  const rows=[...$("#sugg").querySelectorAll("div")];
+  if (e.key==="ArrowDown"||e.key==="ArrowUp") {
+    if(!rows.length || $("#sugg").style.display==="none") return; e.preventDefault();
+    sIdx = (sIdx + (e.key==="ArrowDown"?1:-1) + rows.length) % rows.length;
+    rows.forEach((r,i)=>r.classList.toggle("act",i===sIdx));
+  } else if (e.key==="Enter") {
+    e.preventDefault();
+    if (sIdx>=0 && sItems[sIdx] && $("#sugg").style.display!=="none") { const it=sItems[sIdx]; $("#q").value=it.name; run(it.symbol,it.name,"picked"); }
+    else start();
+  } else if (e.key==="Escape") hideSugg();
+});
+$("#q").addEventListener("blur", ()=>setTimeout(()=>$("#sugg").style.display="none",150));
+$("#go").onclick = start;
+
+async function start(){
+  hideSugg();
+  const q = $("#q").value.trim(); if (!q) return;
+  status(`<div class="banner info"><div class="spinner"></div>Validating “${esc(q)}” against the NSE list…</div>`);
+  try {
+    const r = await api("/api/resolve?q=" + encodeURIComponent(q));
+    if (r.status === "notfound") { status(`<div class="banner err">No NSE-listed stock matches “${esc(q)}”. Check the spelling or try the NSE symbol.</div>`); return; }
+    if (r.status === "ambiguous") {
+      status(`<div class="banner warn">“${esc(q)}” matches more than one NSE stock. Which one did you mean?</div>
+        <div class="options">${r.candidates.map(c=>`<div class="opt" data-s="${esc(c.symbol)}" data-n="${esc(c.name)}">
+          <i>${Math.round(c.score)}% match</i><b>${esc(c.symbol)}</b><span>${esc(c.name)}</span></div>`).join("")}</div>`);
+      document.querySelectorAll(".opt").forEach(o => o.onclick = () => { $("#q").value = o.dataset.n; run(o.dataset.s, o.dataset.n, "picked"); });
+      return;
+    }
+    $("#q").value = r.match.name;
+    run(r.match.symbol, r.match.name, r.status, q, r.candidates);
+  } catch (e) { engineDown(e); }
+}
+
+async function run(symbol, name, how, typed, alts){
+  hideSugg();
+  let msg;
+  if (how === "corrected") {
+    const others = (alts||[]).slice(0,3).map(a=>`<a href="#" class="alt" data-s="${esc(a.symbol)}" data-n="${esc(a.name)}">${esc(a.symbol)}</a>`).join(", ");
+    msg = `<div class="banner ok">✔ You typed “${esc(typed)}”. Corrected to <b>&nbsp;${esc(name)} (NSE: ${esc(symbol)})</b>${others?`<span style="margin-left:auto;font-size:13px">Not this? ${others}</span>`:""}</div>`;
+  } else msg = `<div class="banner ok">✔ Validated: <b>&nbsp;${esc(name)} (NSE: ${esc(symbol)})</b></div>`;
+  status(msg + `<div class="banner info" style="margin-top:8px"><div class="spinner"></div>Fetching technical, sector and fundamental data (Yahoo → Screener.in → Tickertape → Moneycontrol → NSE → Trendlyne → StockEdge → Google Finance)… this can take 10–20 seconds.</div>`);
+  bindAlts(); $("#go").disabled = true;
+  try {
+    const d = await api("/api/analyze?symbol=" + encodeURIComponent(symbol));
+    status(msg); bindAlts(); render(d, true);
+  } catch (e) {
+    status(msg + `<div class="banner err" style="margin-top:8px">Could not fetch data for ${esc(symbol)}: ${esc(e.message)}</div>`);
+  } finally { $("#go").disabled = false; }
+}
+function bindAlts(){ document.querySelectorAll("a.alt").forEach(a=>a.onclick=e=>{e.preventDefault();$("#q").value=a.dataset.n;run(a.dataset.s,a.dataset.n,"picked");}); }
+function status(h){ $("#status").innerHTML = h; }
+function engineDown(e){ status(`<div class="banner err">The data engine isn’t running. In this folder run <code>&nbsp;python server.py&nbsp;</code> (or double-click run_windows.bat), then open http://localhost:8765 (${esc(e.message)})</div>`); }
+
+function evaluate(list, block, d){
+  const tried = (d.fund_sources_tried||[]).join(", ");
+  const rows = list.map(ind => {
+    const val = ind.get ? ind.get(d) : block[ind.k];
+    const skip = ind.fin === false && d.meta.is_financial;
+    const v = skip ? NA : (val==null ? NA : ind.r(val, d));
+    const bm = typeof ind.bm === "function" ? ind.bm(d) : ind.bm;
+    const missing = block===d.fundamental && tried ? `Not reported by any source (tried: ${tried})` : "Data not available from any source";
+    const note = skip ? "Not meaningful for banks/financials" : (val==null ? missing : (ind.n(val, d) || ""));
+    return { ...ind, val, v, bm, note, src: (d.fund_src||{})[ind.k] };
+  });
+  let s=0, w=0; const t={Good:0,Average:0,Bad:0,NA:0};
+  rows.forEach(r => { t[r.v]++; if (r.v!==NA){ s += ({Good:1,Average:0,Bad:-1})[r.v]*r.w; w += r.w; } });
+  return { rows, tally:t, score: w ? Math.round((s/w + 1) * 50) : null };
+}
+const level = s => s==null ? NA : s >= VERDICT.buy ? G : s < VERDICT.avoid ? B : A;
+const LABELS = {
+  technical:{Good:"Bullish",Average:"Neutral",Bad:"Bearish",NA:"No data"},
+  fundamental:{Good:"Strong",Average:"Fair",Bad:"Weak",NA:"No data"},
+  sector:{Good:"Tailwind",Average:"Neutral",Bad:"Headwind",NA:"No data"},
+};
+
+function dipCheck(d, T, F, S){
+  const t = d.technical, s = d.sector, f = d.fundamental;
+  const fell = (t.ret_6m!=null && t.ret_6m <= DIP.fall6m) || (t.from_52w_high!=null && t.from_52w_high <= DIP.from52wHigh);
+  const peRel = f.pe>0 ? f.pe / sb(d).pe : null;
+  const stockSpecific = s.stock_vs_sec_6m!=null && s.stock_vs_sec_6m <= DIP.stockSpecificGap;
+  const stabilising = (t.macd_hist>0) || (t.px_vs_sma20>0) || (t.rsi14!=null && t.rsi14_5d_ago!=null && t.rsi14 > t.rsi14_5d_ago && t.rsi14 > 35);
+  const checks = [
+    { l:"Significant fall?", ok: fell ? "ok" : "no", txt:`6M: ${fmt(t.ret_6m,"%")} · from 52W high: ${fmt(t.from_52w_high,"%")}` },
+    { l:"Business quality intact?", ok: F.score>=DIP.qualityFund?"ok":F.score>=DIP.watchFund?"mid":"no", txt:`Fundamental score ${F.score??"—"}/100 (need ≥${DIP.qualityFund})` },
+    { l:"Valuation now reasonable?", ok: peRel==null?"mid":peRel<=1?"ok":peRel<=DIP.maxPeVsSector?"mid":"no", txt: peRel==null?"P/E not available":`P/E ${fmt(f.pe)} = ${peRel.toFixed(2)}x sector (limit ${DIP.maxPeVsSector}x)` },
+    { l:"Fall is sector-wide, not stock-specific?", ok: s.stock_vs_sec_6m==null?"mid":stockSpecific?"no":"ok", txt:`Stock vs sector (6M): ${fmt(s.stock_vs_sec_6m,"pp")}` },
+    { l:"Price stabilising?", ok: stabilising?"ok":"mid", txt:`MACD hist ${fmt(t.macd_hist)} · vs 20-DMA ${fmt(t.px_vs_sma20,"%")} · RSI ${fmt(t.rsi14)} (5d ago ${fmt(t.rsi14_5d_ago)})` },
+  ];
+  if (!fell) return { type:"none", checks, title:"No significant fall", text:`The stock is not in a major drawdown (thresholds: 6-month return ≤ ${DIP.fall6m}% or ≥ ${-DIP.from52wHigh}% below its 52-week high), so the dip check does not apply. The verdict comes from the three scores alone.` };
+  if (F.score >= DIP.qualityFund && (peRel==null || peRel <= DIP.maxPeVsSector)) {
+    return { type:"quality", checks, stabilising, stockSpecific, title:"Quality stock at a discount: buying opportunity",
+      text:`The price has fallen, but the business scores well (${F.score}/100) and valuation is reasonable. The weak technical score reflects the fall itself, not a broken business. For a long-term investor this is usually a <b>buy-on-dips opportunity</b>.${stockSpecific?" <b>Caution:</b> the stock fell much more than its sector, so check recent news, results or governance before buying.":""}` };
+  }
+  if (F.score >= DIP.watchFund) {
+    return { type:"watch", checks, title:"Watchlist: fall is not yet a clear opportunity",
+      text: F.score >= DIP.qualityFund ? `Fundamentals are good, but even after the fall the stock trades at a premium to its sector (P/E ${peRel?.toFixed(2)}x). Wait for a lower price.`
+                                        : `Fundamentals are only fair (${F.score}/100). A cheaper price alone doesn't make it a bargain. Wait for better quarterly results or a clear trend reversal.` };
+  }
+  return { type:"trap", checks, title:"Falling knife / value trap risk",
+    text:`The stock has fallen <b>and</b> fundamentals are weak (${F.score}/100). The fall likely reflects real business problems, not a temporary discount. Avoid adding more.` };
+}
+
+function render(d, scroll){
+  lastData = d;
+  const P = PROFILES[horizon];
+  const T = evaluate(TECH, d.technical, d), F = evaluate(FUND, d.fundamental, d), S = evaluate(SECT, d.sector, d);
+  let tot=0, tw=0;
+  [[T,"technical"],[F,"fundamental"],[S,"sector"]].forEach(([x,k])=>{ if(x.score!=null){ tot+=x.score*P[k]; tw+=P[k]; } });
+  const overall = tw ? Math.round(tot/tw) : 50;
+  let base = overall >= VERDICT.buy ? "BUY" : overall < VERDICT.avoid ? "AVOID" : "HOLD";
+  let verdict = base, why = `Score ${overall} → ${base} (Buy ≥ ${VERDICT.buy}, Avoid < ${VERDICT.avoid})`;
+  if (verdict==="BUY" && F.score!=null && F.score < VERDICT.minFundamentalForBuy) { verdict="HOLD"; why += `; capped at HOLD because fundamentals < ${VERDICT.minFundamentalForBuy}`; }
+  const dip = dipCheck(d, T, F, S);
+  let sub = {BUY:"Fundamentals, trend and sector support buying", HOLD:"Mixed signals: hold if owned, wait if not", AVOID:"Negatives outweigh positives"}[verdict];
+  if (P.dipOverride) {
+    if (dip.type==="quality" && verdict!=="BUY") { why += `; upgraded to BUY by the dip check (quality stock at a discount)`; verdict="BUY"; }
+    if (dip.type==="watch" && verdict==="AVOID") { why += `; raised to HOLD (watchlist) by the dip check`; verdict="HOLD"; }
+    if (dip.type==="trap" && verdict!=="AVOID") { why += `; lowered to AVOID by the dip check (falling knife)`; verdict="AVOID"; }
+  } else if (dip.type!=="none") why += `; dip check shown for information only (trader horizon follows the trend)`;
+  if (dip.type==="quality" && P.dipOverride) sub = dip.stabilising ? "Buy on dips: accumulate in tranches, price is stabilising" : "Buy on dips: accumulate slowly, the trend is still falling";
+  if (dip.type==="watch" && P.dipOverride && verdict==="HOLD") sub = "Watchlist: wait for better results or a lower price";
+  if (dip.type==="trap" && P.dipOverride) sub = "Falling knife: weak business behind the fall";
+
+  const m = d.meta, t = d.technical;
+  const fundFound = FUND.filter(i=>d.fundamental[i.k]!=null).length;
+  $("#demoFlag").innerHTML = d.demo ? `<div class="demo">DEMO MODE: synthetic numbers for UI testing only. Run <code>python server.py</code> without --demo for live data.</div>` : "";
+  $("#hdr").innerHTML = `
+    <div class="hdr-row"><div>
+      <p class="co-name">${esc(m.name)}</p>
+      <div class="co-sub"><span class="tag">NSE: ${esc(m.symbol)}</span><span class="tag">${esc(m.sector)}</span><span class="tag">${esc(m.industry)}</span></div>
+    </div><div style="text-align:right">
+      <div class="price">${inr(m.price)}<span class="chg ${m.change_pct>=0?"up":"down"}">${m.change_pct>=0?"▲":"▼"} ${fmt(m.change_pct,"%")}</span></div>
+      <div class="co-sub">Last close ${esc(m.as_of)} · Sector index: ${esc(d.sector.index_name||"—")}</div>
+    </div></div>
+    <div class="kpis">
+      <div class="kpi"><small>Market cap</small><b>${crore(m.market_cap)}</b></div>
+      <div class="kpi"><small>52W range</small><b>${inr(t.lo52)} – ${inr(t.hi52)}</b></div>
+      <div class="kpi"><small>6M return</small><b class="${t.ret_6m>=0?"up":"down"}">${fmt(t.ret_6m,"%")}</b></div>
+      <div class="kpi"><small>P/E vs sector P/E</small><b>${fmt(d.fundamental.pe)} vs ${sb(d).pe}</b></div>
+      <div class="kpi"><small>Fundamentals found</small><b>${fundFound} of ${FUND.length}</b><small>${esc((d.fund_sources_used||[]).join(" + ")||"—")}</small></div>
+    </div>`;
+
+  const card = (key, title, X) => { const lv = level(X.score), c = {Good:"#12a150",Average:"#e0a100",Bad:"#d8342c",NA:"#c4ccd8"}[lv];
+    return `<div class="sc lvl-${lv}"><div class="t">${title}</div><span class="w">${Math.round(P[key]*100)}% weight</span>
+      <div class="n" style="color:${c}">${X.score??"—"}<small>/100</small></div>
+      <span class="lab ${lv}">${LABELS[key][lv]}</span>
+      <div class="ring"><div style="width:${X.score??0}%;background:${c}"></div></div>
+      <div class="cnt"><span class="up">${X.tally.Good} Good</span><span style="color:var(--avg)">${X.tally.Average} Avg</span><span class="down">${X.tally.Bad} Bad</span>${X.tally.NA?`<span style="color:var(--na)">${X.tally.NA} N/A</span>`:""}</div></div>`; };
+  $("#scores").innerHTML = card("technical","Technical score",T) + card("fundamental","Fundamental score",F) + card("sector","Sectoral score",S) +
+    `<div class="sc overall"><div class="t">Overall verdict</div><span class="w">${P.label}</span>
+      <div class="bigv ${verdict}">${verdict}</div>
+      <div class="vsub">${sub}</div>
+      <div class="formula">Overall = <b>${Math.round(P.technical*100)}%</b>×${T.score??"—"} + <b>${Math.round(P.fundamental*100)}%</b>×${F.score??"—"} + <b>${Math.round(P.sector*100)}%</b>×${S.score??"—"} = <b>${overall}/100</b><br>${esc(why)}.</div></div>`;
+
+  const dipLbl = {quality:"Opportunity", watch:"Watchlist", trap:"Falling knife", none:"Not applicable"}[dip.type];
+  const dipChip = {quality:"Good", watch:"Average", trap:"Bad", none:"NA"}[dip.type];
+  const plan = dip.type==="quality" ? `<div class="plan"><b>Suggested way to buy (staggered, not all at once):</b><ol>
+      <li>${dip.stabilising ? "First tranche (~40%) now, since the price is showing early signs of stabilising." : "Small first tranche (~25%) now. The trend is still down, so keep the rest in reserve."}</li>
+      <li>Second tranche on a further ~7–10% fall, or once the price closes above its 50-DMA (${inr(t.sma50)}).</li>
+      <li>Final tranche after the next quarterly results confirm that earnings growth is intact.</li></ol></div>` : "";
+  $("#dip").className = "card dip " + dip.type;
+  $("#dip").innerHTML = `<h2>Is the recent fall a buying opportunity? <span class="chip c-${dipChip}" style="font-size:13px">${dipLbl}</span></h2>
+    <div><b>${dip.title}.</b> ${dip.text}${!P.dipOverride && dip.type!=="none" ? " <i>(Shown for information: the short-term trader horizon does not buy against a falling trend.)</i>":""}</div>
+    <div class="checks">${dip.checks.map(c=>`<div class="chk"><b>${c.l} <span class="${c.ok}">${c.ok==="ok"?"✔ Yes":c.ok==="no"?"✖ No":"● Partly"}</span></b>${esc(c.txt)}</div>`).join("")}</div>${plan}`;
+
+  const st = d.fund_source_status || {};
+  const srcBar = Object.keys(st).length ? `<div class="srcbar">${Object.entries(st).map(([n,s])=>{
+      const cls = /filled|ok: [1-9]/.test(s) ? "ok" : /failed/.test(s) ? "fail" : "";
+      return `<span class="${cls}" title="${esc(s)}">${esc(n)}: ${esc(s)}</span>`; }).join("")}</div>` : "";
+  $("#t-tech").innerHTML = table("Technical indicators", T, false, "");
+  $("#t-fund").innerHTML = table("Fundamental indicators", F, true, srcBar);
+  $("#t-sect").innerHTML = table(`Sector indicators: ${esc(m.sector)} vs ${esc(d.sector.index_name||"")}`, S, false, "");
+  $("#rec").innerHTML = recommendation(verdict, overall, T, F, S, dip, P);
+  chart(d.chart);
+  $("#result").style.display = "block";
+  if (scroll) $("#result").scrollIntoView({behavior:"smooth", block:"start"});
+}
+
+function table(title, X, showSrc, extra){
+  const t = X.tally;
+  return `<h2>${title}<span class="tally"><span class="up">● ${t.Good} Good</span><span style="color:var(--avg)">● ${t.Average} Average</span><span class="down">● ${t.Bad} Bad</span><span style="color:#445">Score ${X.score??"—"}/100</span></span></h2>${extra||""}
+  <table><thead><tr><th style="width:24%">Indicator</th><th style="width:10%">Value</th><th style="width:24%">Benchmark</th><th style="width:10%">Verdict</th><th>What it means</th>${showSrc?"<th>Source</th>":""}</tr></thead><tbody>
+  ${X.rows.map(r=>`<tr><td>${r.l}</td><td class="val">${fmt(r.val,r.u)}</td><td class="bm">${r.bm}</td>
+    <td><span class="chip c-${r.v}">${r.v==="NA"?"N/A":r.v}</span></td><td class="note">${esc(r.note)}</td>${showSrc?`<td class="src">${esc(r.src||"—")}</td>`:""}</tr>`).join("")}
+  </tbody></table>`;
+}
+
+function recommendation(verdict, overall, T, F, S, dip, P){
+  const all = [...T.rows.map(r=>({...r,g:"Technical"})), ...F.rows.map(r=>({...r,g:"Fundamental"})), ...S.rows.map(r=>({...r,g:"Sector"}))];
+  const pick = v => all.filter(r=>r.v===v).sort((a,b)=>b.w-a.w).slice(0,5);
+  const li = r => `<li><b>${r.l}</b> (${r.g}): ${fmt(r.val,r.u)}${r.note?` · ${esc(r.note)}`:""}</li>`;
+  const L = (k,X) => LABELS[k][level(X.score)].toLowerCase();
+  const head = `Fundamentals are <b>${L("fundamental",F)}</b> (${F.score??"—"}/100), technicals are <b>${L("technical",T)}</b> (${T.score??"—"}/100) and the sector shows a <b>${L("sector",S)}</b> (${S.score??"—"}/100). ` +
+    ({BUY:"On balance the stock qualifies as a <b>BUY</b>", HOLD:"On balance the verdict is <b>HOLD</b>: hold if you own it, wait if you don't", AVOID:"On balance the stock is best <b>AVOIDED</b> for now"}[verdict]) +
+    ` for a ${P.label.toLowerCase()}.` + (P.dipOverride && dip.type==="quality" ? " The recent fall has made a fundamentally sound business cheaper, which is why the dip check upgrades the verdict." : "");
+  const g = pick(G), b = pick(B);
+  return `<h2>Overall recommendation <span class="chip c-${verdict==="BUY"?"Good":verdict==="HOLD"?"Average":"Bad"}" style="font-size:13px">${verdict} · ${overall}/100</span></h2>
+    <div>${head}</div>
+    <div class="cols2">
+      <div><h3 class="up">Key strengths</h3><ul>${g.length?g.map(li).join(""):"<li>None stand out</li>"}</ul></div>
+      <div><h3 class="down">Key concerns</h3><ul>${b.length?b.map(li).join(""):"<li>No major red flags</li>"}</ul></div>
+    </div>`;
+}
+
+function chart(c){
+  const W=1100,H=240,P=40, svg=$("#chart");
+  const vals=[...c.close,...c.sma50,...c.sma200].filter(v=>v!=null);
+  const mn=Math.min(...vals), mx=Math.max(...vals), n=c.close.length;
+  const x=i=>P+(W-P-8)*i/(n-1), y=v=>H-22-(H-34)*(v-mn)/(mx-mn||1);
+  const path=a=>{let s="",on=false;a.forEach((v,i)=>{if(v==null){on=false;return;} s+=(on?"L":"M")+x(i).toFixed(1)+","+y(v).toFixed(1); on=true;}); return s;};
+  let grid="";
+  for(let k=0;k<=4;k++){const v=mn+(mx-mn)*k/4, yy=y(v); grid+=`<line x1="${P}" x2="${W}" y1="${yy}" y2="${yy}" stroke="#eef1f5"/><text x="0" y="${yy+4}" font-size="11" fill="#8a97a8">${Math.round(v)}</text>`;}
+  let lab=""; [0,Math.floor(n/2),n-1].forEach(i=>lab+=`<text x="${Math.min(x(i),W-70)}" y="${H-4}" font-size="11" fill="#8a97a8">${c.dates[i]}</text>`);
+  svg.innerHTML = grid + lab +
+    `<path d="${path(c.close)} L${x(n-1)},${H-22} L${P},${H-22} Z" fill="rgba(25,55,109,.07)"/>` +
+    `<path d="${path(c.close)}" fill="none" stroke="#19376d" stroke-width="2"/>` +
+    `<path d="${path(c.sma50)}" fill="none" stroke="#ff6b4a" stroke-width="1.8"/>` +
+    `<path d="${path(c.sma200)}" fill="none" stroke="#12a150" stroke-width="1.8"/>`;
+}
+
+api("/api/health").then(h=>{ $("#engine").textContent = "· Symbols: " + h.master + (h.demo?" · DEMO MODE":""); }).catch(e=>engineDown(e));
+</script>
+</body>
+</html>
